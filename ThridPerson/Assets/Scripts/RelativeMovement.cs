@@ -16,12 +16,15 @@ public class RelativeMovement : MonoBehaviour {
     public float minFall = -10.5f;
 
     private float vertSpeed;
+    private ControllerColliderHit contact;
 
     private CharacterController characterController;
+    private Animator animator;
 
 	// Use this for initialization
 	void Start () {
         characterController = GetComponent<CharacterController>();
+        animator = GetComponent<Animator>();
         vertSpeed = minFall;
 	}
 	
@@ -38,6 +41,8 @@ public class RelativeMovement : MonoBehaviour {
             movment = Vector3.ClampMagnitude(movment, moveSpeed);
         }
 
+        animator.SetFloat("Speed", movment.sqrMagnitude);
+
         Quaternion tmp = target.rotation;
         target.eulerAngles = new Vector3(0, target.eulerAngles.y, 0);
         movment = target.TransformDirection(movment);
@@ -48,7 +53,16 @@ public class RelativeMovement : MonoBehaviour {
         movment *= Time.deltaTime;
        characterController.Move(movment);
 
-        if (characterController.isGrounded)
+        bool hitGround = false;
+        RaycastHit hit;
+        if(vertSpeed <0 && Physics.Raycast(transform.position,Vector3.down,out hit))
+        {
+            float check = (characterController.height + characterController.radius) / 1.9f;
+            hitGround = hit.distance <= check;
+        }
+
+
+        if (hitGround)
         {
             Debug.Log("Gourd");
             if (Input.GetButtonDown("Jump"))
@@ -58,7 +72,8 @@ public class RelativeMovement : MonoBehaviour {
             }
             else
             {
-                vertSpeed = minFall;
+                vertSpeed = -0.1f;
+                animator.SetBool("Jumping", false);
             }
         }
         else
@@ -68,10 +83,29 @@ public class RelativeMovement : MonoBehaviour {
             {
                 vertSpeed = terminalVelocity;
             }
+            if (contact != null)
+            {
+                animator.SetBool("Jumping", true);
+            }
+            if (characterController.isGrounded)
+            {
+                if (Vector3.Dot(movment, contact.normal) < 0)
+                {
+                    movment = contact.normal * moveSpeed;
+                }
+                else
+                {
+                    movment += contact.normal * moveSpeed;
+                }
+            }
         }
-
         movment.y = vertSpeed;
         movment *= Time.deltaTime;
         characterController.Move(movment);
+    }
+
+    void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        contact = hit;
     }
 }
